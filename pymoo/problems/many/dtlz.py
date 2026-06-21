@@ -118,11 +118,20 @@ class DTLZ5(DTLZ):
     def __init__(self, n_var=10, n_obj=3, **kwargs):
         super().__init__(n_var=n_var, n_obj=n_obj, **kwargs)
 
-    def _calc_pareto_front(self):
+    def _calc_pareto_front(self, n_points=500):
         if self.n_obj == 3:
             return Remote.get_instance().load("pymoo", "pf", "dtlz5-3d.pf")
-        else:
-            raise Exception("Not implemented yet.")
+
+        # Degenerate curve: theta_1 free in [0, pi/2], theta_i = pi/4 for i > 1
+        theta1 = np.linspace(0, np.pi / 2, n_points)
+        thetas = np.column_stack([theta1] + [np.full(n_points, np.pi / 4)] * (self.n_obj - 2))
+        cos_t, sin_t = np.cos(thetas), np.sin(thetas)
+        pf = np.zeros((n_points, self.n_obj))
+        for i in range(self.n_obj):
+            pf[:, i] = np.prod(cos_t[:, :self.n_obj - 1 - i], axis=1)
+            if i > 0:
+                pf[:, i] *= sin_t[:, self.n_obj - 1 - i]
+        return pf
 
     def _evaluate(self, x, out, *args, **kwargs):
         X_, X_M = x[:, :self.n_obj - 1], x[:, self.n_obj - 1:]
@@ -138,11 +147,20 @@ class DTLZ6(DTLZ):
     def __init__(self, n_var=10, n_obj=3, **kwargs):
         super().__init__(n_var=n_var, n_obj=n_obj, **kwargs)
 
-    def _calc_pareto_front(self):
+    def _calc_pareto_front(self, n_points=500):
         if self.n_obj == 3:
             return Remote.get_instance().load("pymoo", "pf", "dtlz6-3d.pf")
-        else:
-            raise Exception("Not implemented yet.")
+
+        # Same degenerate curve geometry as DTLZ5 (different g function, same Pareto front shape)
+        theta1 = np.linspace(0, np.pi / 2, n_points)
+        thetas = np.column_stack([theta1] + [np.full(n_points, np.pi / 4)] * (self.n_obj - 2))
+        cos_t, sin_t = np.cos(thetas), np.sin(thetas)
+        pf = np.zeros((n_points, self.n_obj))
+        for i in range(self.n_obj):
+            pf[:, i] = np.prod(cos_t[:, :self.n_obj - 1 - i], axis=1)
+            if i > 0:
+                pf[:, i] *= sin_t[:, self.n_obj - 1 - i]
+        return pf
 
     def _evaluate(self, x, out, *args, **kwargs):
         X_, X_M = x[:, :self.n_obj - 1], x[:, self.n_obj - 1:]
@@ -158,11 +176,16 @@ class DTLZ7(DTLZ):
     def __init__(self, n_var=10, n_obj=3, **kwargs):
         super().__init__(n_var=n_var, n_obj=n_obj, **kwargs)
 
-    def _calc_pareto_front(self):
+    def _calc_pareto_front(self, n_points=500):
         if self.n_obj == 3:
             return Remote.get_instance().load("pymoo", "pf", "dtlz7-3d.pf")
-        else:
-            raise Exception("Not implemented yet.")
+
+        # Sample first (n_obj-1) objectives uniformly; compute last via h with g=0
+        rng = np.random.default_rng(42)
+        F_first = rng.random((n_points * 20, self.n_obj - 1))
+        h = self.n_obj - np.sum(F_first * (1 + np.sin(3 * np.pi * F_first)), axis=1)
+        valid = h >= 0
+        return np.column_stack([F_first[valid], h[valid]])
 
     def _evaluate(self, x, out, *args, **kwargs):
         f = []
@@ -177,9 +200,6 @@ class DTLZ7(DTLZ):
 
 
 class InvertedDTLZ1(DTLZ1):
-
-    def _calc_pareto_front(self):
-        raise Exception("Not implemented yet.")
 
     def _evaluate(self, x, out, *args, **kwargs):
         X_, X_M = x[:, :self.n_obj - 1], x[:, self.n_obj - 1:]
